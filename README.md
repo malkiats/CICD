@@ -22,15 +22,16 @@ Testing Phase / Automated Testing
 
 ![image](https://user-images.githubusercontent.com/43002915/147396859-2ea8d13e-5994-41ae-a2ae-f1bba1e1594e.png)  
 
-![image](https://user-images.githubusercontent.com/43002915/147396864-c4a4f1a6-2beb-4921-b0e9-b51963e3d71a.png)  
+![image](https://user-images.githubusercontent.com/43002915/147396864-c4a4f1a6-2beb-4921-b0e9-b51963e3d71a.png) 
 
+![image](https://user-images.githubusercontent.com/43002915/147396904-d52d5b17-b2d4-4f7f-a4e5-bcc187acf327.png)
 
+![image](https://user-images.githubusercontent.com/43002915/147396916-72d59f15-df5d-4677-9a0e-1adf5e5280cf.png)  
 
+![image](https://user-images.githubusercontent.com/43002915/147396925-fb12d0a9-91b5-41b1-b70e-af578256776e.png)  
 
+![image](https://user-images.githubusercontent.com/43002915/147396947-ef79cc2d-183e-4375-bb67-e75c2d7100aa.png)  
 
+![image](https://user-images.githubusercontent.com/43002915/147396951-195034df-f432-43bd-a2d1-f1c25365393a.png)  
 
-
-
-
-
- 
+![image](https://user-images.githubusercontent.com/43002915/147396955-260046b3-cee3-48f8-be67-f5c3a6169628.png)  
