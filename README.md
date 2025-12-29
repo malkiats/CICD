@@ -1,3 +1,95 @@
+# CI/CD
+
+## Elevator pitch
+Gated CI validates packaging, tests, linting, security; builds and tags Docker images with a deterministic version (ticgen). Tag → prerelease → automated PR into landing-zone → bot approval & auto-merge (optional) → Kubernetes deploy using a reusable k8s template with rollout verification and rollback.
+
+---
+
+## CI (ci.yml) — Key jobs
+- Trigger: pull_request (all branches)
+- Runner/container: internal runner `self-hosted` + python image `amr-registry...python:3.11.9`
+- validate-pyproject: `poetry check` (quick schema validation)
+- checks:
+  - `poetry install`, `tox -e unit-test`, `python -m build`
+  - install package from `dist/` and run: black, bandit, mypy, pylint, isort
+  - many checks use `if: always()` to surface results even on prior failure
+- versions: run shared `ticgen` action to compute `tic` and `version` outputs (used across build/publish)
+- run-build: reusable workflow (`build.yml`) that runs `./malilap plan generate` and uploads build artifacts
+- publish: Docker buildx, login to internal ACR, push image tagged with computed version
+- required-ci-check: enforces all required jobs succeed before merging; uploads summary artifact
+
+Artifacts & versioning
+- Builds uploaded as artifacts (e.g., `dist-nix`)
+- Versions computed with `ticgen` from `pyproject.toml` → deterministic image tags
+
+---
+
+## CD (cd.yml + create-prerelease.yml + pre-release.yml + prod-release.yml)
+- create-prerelease.yml: turns any pushed tag into a GitHub prerelease (API call)
+- pre-release.yml (on prereleased):
+  - Validates release origin (must be automated)
+  - Checks out `actions.malilap.deploy` action and runs the composite action (which executes `auto_deploy.py`)
+  - Creates PRs in `applications.psg.malilap-1source.landing-zone` to update k8s env file(s)
+- prod-release.yml: triggered on release edits; can run deploy with different flags (skip_merge, no delete)
+- Auto flow: tag -> prerelease -> auto PR to landing zone -> checks -> bot approval -> merge -> verify -> optionally convert to official release
+
+---
+
+## Auto-deploy (auto_deploy.py + action.yml) — behavior summary
+- Inputs via env prefix `GITHUB_` (pydantic Settings)
+- Main steps:
+  1. Choose target env file: pre-prod (default) or prod when skip_merge
+  2. Read env file from landing-zone repo, update `export IMAGE_VERSION=...` to release tag
+  3. Create branch `refs/heads/<release_tag>` (upsert if exists) and a PR to `main`
+  4. Fetch PR details, sync remote PR check-suite/check-run statuses back to local tag commit (mirrors remote CI)
+  5. Monitor check runs until completion; require success
+  6. If all checks pass and skip_merge==false:
+     - Approve PR using bot token
+     - Merge PR (squash default)
+     - Wait and verify deployment via HTTP endpoint (polling)
+  7. If configured, delete release branch and/or convert prerelease to official release
+- action.yml installs `requests`, `malilap-core`, `pydantic-settings` and runs the script inside composite action
+
+---
+
+## K8s deployment (k8s-deploy-template.yml)
+- Inputs: env-file path which contains IMAGE_NAME, IMAGE_VERSION, NAME, DEPLOYMENT, DEPLOYMENT_NAME
+- Steps:
+  - Setup kubectl and write kubeconfig from secret
+  - For PR: `kubectl set image` dry-run
+  - For push: `kubectl set image`, `kubectl rollout status`, poll until pod RUNNING & image matches
+  - On failure: `kubectl rollout undo`, then verify rollback
+
+---
+
+## Security & network
+- Tokens/secrets: SYS_PSAS_CICD_GH_PAT, SYS_PSGSW_BOT_GH_PAT, SYS_PSAS_CICD_PASSWORD, KUBECONFIG (kept in GH Secrets)
+- Bot token separated from GH token for approval/merge actions
+- Corporate proxy & internal PyPI used via env vars (HTTP_PROXY, PIP_EXTRA_INDEX_URL, pip.ini)
+
+---
+
+## Failure handling & observability
+- Lint/tests report with `if: always()` for diagnostics
+- Auto-deploy: fails if multiple/zero PRs found, fails on failed checks, raises if deployment verification fails
+- k8s template: rollback on failure, verifies rollout status
+- Artifacts & uploaded summaries aid debugging
+
+---
+
+## Quick risks & proposed fixes
+- Race conditions on similarly named tags/branches → add locking or unique branch prefix
+- Long polling loops → add max-timeouts & exponential backoff
+- Bot token scope → narrow permissions and audit usage
+- Docker builds use `no-cache: true` → enable caching for faster builds
+- Improve visibility: add metrics, GitHub Checks annotations, longer artifact retention
+
+---
+
+## Two-sentence interview summary
+A reproducible, gated CI builds and validates the package and Docker image, using shared actions for versioning and builds. Releases are staged (prerelease) and automatically create PRs in the landing-zone; a bot can approve and merge when remote checks pass and a templated k8s deployment updates and verifies the live cluster with rollback on failure.
+
+
 # CICD
 ![image](https://user-images.githubusercontent.com/43002915/147396612-62575bde-85d1-4449-84a8-1a2be4faa897.png)  
 
